@@ -1,0 +1,71 @@
+{% for movie in movies %}
+    <article class="catalog-card">
+        <a href="{{ url_for('main.detail', movie_id=movie.id) }}" class="catalog-card__poster-link">
+            <div class="catalog-card__poster-frame">
+                <img
+                    src="{{ movie.poster_url }}"
+                    alt="{{ movie.title }}"
+                    class="catalog-card__poster"
+                    loading="lazy"
+                    onerror="this.closest('.catalog-card').remove();"
+                >
+            </div>
+        </a>
+
+        <div class="catalog-card__body">
+            <div class="catalog-card__topline">
+                <span class="catalog-card__type">
+                    {% if movie.type == 'FILM' %}
+                        Фильм
+                    {% elif movie.type == 'TV_SERIES' %}
+                        Сериал
+                    {% elif movie.type == 'MINI_SERIES' %}
+                        Мини-сериал
+                    {% else %}
+                        {{ movie.type_label() }}
+                    {% endif %}
+                </span>
+
+                {% if movie.year %}
+                    <span class="catalog-card__year">{{ movie.year }}</span>
+                {% endif %}
+            </div>
+
+            <h3 class="catalog-card__title">
+                <a href="{{ url_for('main.detail', movie_id=movie.id) }}">
+                    {{ movie.title }}
+                </a>
+            </h3>
+
+            <p class="catalog-card__meta">
+                {% if movie.countries %}
+                    {{ movie.countries[0].name }}
+                {% endif %}
+
+                {% if movie.countries and movie.genres %}
+                    ·
+                {% endif %}
+
+                {% if movie.genres %}
+                    {{ movie.genres[0].name }}
+                {% endif %}
+            </p>
+
+            {% set short_text = movie.short_description or movie.description %}
+
+            {% if short_text %}
+                <p class="catalog-card__description">
+                    {{ short_text }}
+                </p>
+            {% else %}
+                <p class="catalog-card__description catalog-card__description--empty">
+                    Описание пока не добавлено.
+                </p>
+            {% endif %}
+
+            <a href="{{ url_for('main.detail', movie_id=movie.id) }}" class="catalog-card__link">
+                Подробнее
+            </a>
+        </div>
+    </article>
+{% endfor %}

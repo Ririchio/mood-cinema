@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Подбор по настроению{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mood.css') }}">
+{% endblock %}
+
+{% block content %}
+<section
+    id="mood-theme-root"
+    class="mood-page mood-page--form mood-theme mood-theme--neutral"
+    data-mood-theme-root
+>
+    <div class="container">
+        <div class="mood-hero mood-hero--cinema">
+            <div class="mood-hero__content">
+                <p class="mood-hero__eyebrow">Подбор по состоянию</p>
+                <h1>Не выбирай жанр. Выбери, что тебе сейчас нужно.</h1>
+                <p>
+                    Это не психологический тест и не диагноз. Это короткий разговор с системой:
+                    какое у тебя состояние, какой нужен темп, сколько тяжести выдержишь
+                    и каким должно быть послевкусие.
+                </p>
+            </div>
+
+            <div class="mood-hero__note">
+                <span>{{ questions|length }}</span>
+                <p>вопросов, чтобы подборка была точнее обычного фильтра по жанру</p>
+            </div>
+        </div>
+
+        <form method="post" action="{{ url_for('mood.result') }}" class="mood-form">
+            {% for question in questions %}
+                <section class="mood-question">
+                    <div class="mood-question__head">
+                        <span class="mood-question__number">{{ loop.index }}</span>
+
+                        <div>
+                            <h2>{{ question.title }}</h2>
+                            <p>{{ question.subtitle }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mood-options">
+                        {% for value, title, description in question.options %}
+                            <label class="mood-option">
+                                <input
+                                    type="radio"
+                                    name="{{ question.name }}"
+                                    value="{{ value }}"
+                                    {% if question.name == 'main_state' %}
+                                        data-mood-state-input
+                                    {% endif %}
+                                    {% if loop.first %}required{% endif %}
+                                >
+
+                                <span class="mood-option__box">
+                                    <strong>{{ title }}</strong>
+                                    <small>{{ description }}</small>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
+
+            <div class="mood-submit">
+                <div>
+                    <p class="mood-submit__eyebrow">Готово</p>
+                    <h2>Собираем подборку</h2>
+                    <p>
+                        Система сравнит твой текущий запрос с эмоциональными признаками
+                        фильмов и сериалов: темпом, теплотой, напряжением, юмором,
+                        мрачностью, форматом и зрительским тоном.
+                    </p>
+                </div>
+
+                <button type="submit" class="btn btn--primary">
+                    Подобрать кино
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/mood-theme.js') }}"></script>
+{% endblock %}

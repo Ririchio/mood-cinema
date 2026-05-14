@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Каталог фильмов и сериалов{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <div class="hero-card">
+            <div class="hero-card__content">
+                <p class="hero-card__eyebrow">Курсовой проект</p>
+                <h1>Кино под настроение</h1>
+                <p class="hero-card__text">
+                    Каталог фильмов и сериалов с поиском, гибкими фильтрами и будущим подбором
+                    по текущему эмоциональному состоянию пользователя.
+                </p>
+            </div>
+
+            <div class="hero-card__side">
+                <div class="hero-stat">
+                    <span>{{ pagination.total }}</span>
+                    <p>произведений найдено</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="catalog-section">
+    <div class="container">
+        <div class="filter-box">
+            <form method="get" action="{{ url_for('main.index') }}" class="filter-form" autocomplete="off">
+                <div id="filter-state-fields">
+                    {% for genre_id in filters.include_genres %}
+                        <input type="hidden" name="include_genres" value="{{ genre_id }}">
+                    {% endfor %}
+
+                    {% for genre_id in filters.exclude_genres %}
+                        <input type="hidden" name="exclude_genres" value="{{ genre_id }}">
+                    {% endfor %}
+
+                    {% for country_id in filters.include_countries %}
+                        <input type="hidden" name="include_countries" value="{{ country_id }}">
+                    {% endfor %}
+
+                    {% for country_id in filters.exclude_countries %}
+                        <input type="hidden" name="exclude_countries" value="{{ country_id }}">
+                    {% endfor %}
+                </div>
+
+                <div class="search-box">
+                    <label class="filter-label">Поиск по названию</label>
+
+                    <div class="search-suggest" data-suggest-root>
+                        <input
+                            id="search-input"
+                            type="text"
+                            name="q"
+                            placeholder="Например: Интерстеллар"
+                            value="{{ filters.q }}"
+                            data-suggest-input
+                        >
+
+                        <div class="suggest-panel" data-suggest-panel></div>
+                    </div>
+                </div>
+
+                <div class="filter-row filter-row--clean">
+                    <div class="filter-field">
+                        <label class="filter-label">Тип</label>
+
+                        <div class="type-switch type-switch--three">
+                            <label class="type-option">
+                                <input type="radio" name="type" value="all" {% if filters.type == 'all' or filters.type == 'MINI_SERIES' %}checked{% endif %}>
+                                <span>Все</span>
+                            </label>
+
+                            <label class="type-option">
+                                <input type="radio" name="type" value="FILM" {% if filters.type == 'FILM' %}checked{% endif %}>
+                                <span>Фильмы</span>
+                            </label>
+
+                            <label class="type-option">
+                                <input type="radio" name="type" value="TV_SERIES" {% if filters.type == 'TV_SERIES' %}checked{% endif %}>
+                                <span>Сериалы</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="filter-field">
+                        <label class="filter-label">Год</label>
+
+                        <input
+                            class="year-input"
+                            type="number"
+                            name="year"
+                            min="1900"
+                            max="2035"
+                            placeholder="Любой год"
+                            value="{{ filters.year if filters.year else '' }}"
+                        >
+                    </div>
+
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn--primary">Найти</button>
+                        <a href="{{ url_for('main.index') }}" class="btn btn--secondary">Сбросить</a>
+                    </div>
+                </div>
+
+                <div class="filter-hint">
+                    <span class="hint-dot hint-dot--include"></span>
+                    первое нажатие — включить
+                    <span class="hint-dot hint-dot--exclude"></span>
+                    второе — исключить
+                    <span class="hint-dot"></span>
+                    третье — сбросить
+                </div>
+
+                <div class="filter-panels">
+                    <details
+                        class="filter-panel filter-panel--wide"
+                        {% if selected_include_genres or selected_exclude_genres %}open{% endif %}
+                    >
+                        <summary class="filter-panel__summary">
+                            <div class="filter-panel__head">
+                                <div>
+                                    <h3>Жанры</h3>
+                                    <p>выбирай нужные или исключай лишние</p>
+                                </div>
+
+                                <span class="filter-panel__toggle">Развернуть</span>
+                            </div>
+                        </summary>
+
+                        <div class="state-chip-grid">
+                            {% for genre in genres %}
+                                {% set state = 'neutral' %}
+
+                                {% if genre.id in filters.include_genres %}
+                                    {% set state = 'include' %}
+                                {% elif genre.id in filters.exclude_genres %}
+                                    {% set state = 'exclude' %}
+                                {% endif %}
+
+                                <button
+                                    type="button"
+                                    class="state-chip state-chip--{{ state }}"
+                                    data-state-chip
+                                    data-kind="genre"
+                                    data-id="{{ genre.id }}"
+                                    data-state="{{ state }}"
+                                >
+                                    <span class="state-chip__icon"></span>
+                                    <span>{{ genre.name }}</span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </details>
+
+                    <details
+                        class="filter-panel filter-panel--wide"
+                        {% if selected_include_countries or selected_exclude_countries %}open{% endif %}
+                    >
+                        <summary class="filter-panel__summary">
+                            <div class="filter-panel__head">
+                                <div>
+                                    <h3>Страны</h3>
+                                    <p>оставь нужные страны или убери неинтересные</p>
+                                </div>
+
+                                <span class="filter-panel__toggle">Развернуть</span>
+                            </div>
+                        </summary>
+
+                        <div class="state-chip-grid state-chip-grid--countries">
+                            {% for country in countries %}
+                                {% set state = 'neutral' %}
+
+                                {% if country.id in filters.include_countries %}
+                                    {% set state = 'include' %}
+                                {% elif country.id in filters.exclude_countries %}
+                                    {% set state = 'exclude' %}
+                                {% endif %}
+
+                                <button
+                                    type="button"
+                                    class="state-chip state-chip--{{ state }}"
+                                    data-state-chip
+                                    data-kind="country"
+                                    data-id="{{ country.id }}"
+                                    data-state="{{ state }}"
+                                >
+                                    <span class="state-chip__icon"></span>
+                                    <span>{{ country.name }}</span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </details>
+                </div>
+            </form>
+        </div>
+
+        <div class="catalog-header">
+            <div>
+                <h2>Каталог</h2>
+                <p>Найдено: {{ pagination.total }}</p>
+            </div>
+
+            {% if filters.q or selected_include_genres or selected_exclude_genres or selected_include_countries or selected_exclude_countries or filters.type != 'all' or filters.year %}
+                <div class="active-filters">
+                    {% if filters.q %}
+                        <span class="active-filter">Название: {{ filters.q }}</span>
+                    {% endif %}
+
+                    {% if filters.type != 'all' %}
+                        <span class="active-filter">
+                            {% if filters.type == 'FILM' %}
+                                Фильмы
+                            {% elif filters.type == 'TV_SERIES' %}
+                                Сериалы
+                            {% else %}
+                                {{ filters.type }}
+                            {% endif %}
+                        </span>
+                    {% endif %}
+
+                    {% if filters.year %}
+                        <span class="active-filter">Год: {{ filters.year }}</span>
+                    {% endif %}
+
+                    {% for genre in selected_include_genres %}
+                        <span class="active-filter">Жанр: {{ genre.name }}</span>
+                    {% endfor %}
+
+                    {% for genre in selected_exclude_genres %}
+                        <span class="active-filter active-filter--exclude">Без жанра: {{ genre.name }}</span>
+                    {% endfor %}
+
+                    {% for country in selected_include_countries %}
+                        <span class="active-filter">Страна: {{ country.name }}</span>
+                    {% endfor %}
+
+                    {% for country in selected_exclude_countries %}
+                        <span class="active-filter active-filter--exclude">Без страны: {{ country.name }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        {% if movies %}
+            <div class="catalog-grid" id="catalog-grid">
+                {% include "partials/_movie_cards.html" %}
+            </div>
+
+            <div
+                class="infinite-panel"
+                id="infinite-scroll-panel"
+                data-has-next="{{ '1' if pagination.has_next else '0' }}"
+                data-next-page="{{ pagination.next_num if pagination.has_next else '' }}"
+            >
+                <div class="infinite-loader" aria-hidden="true"></div>
+
+                <div class="infinite-status" id="infinite-scroll-status">
+                    {% if pagination.has_next %}
+                        Прокрути ниже — подгрузим ещё фильмы и сериалы
+                    {% else %}
+                        Это все найденные фильмы и сериалы
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-box">
+                <h3>Ничего не найдено</h3>
+                <p>Попробуй изменить параметры поиска или убрать часть фильтров.</p>
+                <a href="{{ url_for('main.index') }}" class="btn btn--primary">Вернуться в каталог</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/filter-states.js') }}"></script>
+<script src="{{ url_for('static', filename='js/search-suggest.js') }}"></script>
+<script src="{{ url_for('static', filename='js/infinite-scroll.js') }}"></script>
+{% endblock %}

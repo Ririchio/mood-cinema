@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{ movie.title }}{% endblock %}
+
+{% block content %}
+<section class="detail-section">
+    <div class="container">
+        <div class="detail-layout">
+            <aside class="detail-layout__poster-col">
+                <div class="detail-poster-card">
+                    <img
+                        src="{{ movie.poster_url }}"
+                        alt="{{ movie.title }}"
+                        class="detail-poster-card__image"
+                        loading="lazy"
+                    >
+                </div>
+            </aside>
+
+            <div class="detail-layout__content-col">
+                <div class="detail-card">
+                    <div class="detail-card__chips">
+                        <span class="chip chip--accent">
+                            {% if movie.type == 'FILM' %}
+                                Фильм
+                            {% elif movie.type == 'TV_SERIES' %}
+                                Сериал
+                            {% elif movie.type == 'MINI_SERIES' %}
+                                Мини-сериал
+                            {% else %}
+                                {{ movie.type_label() }}
+                            {% endif %}
+                        </span>
+
+                        {% if movie.year %}
+                            <span class="chip">{{ movie.year }}</span>
+                        {% endif %}
+
+                        {% if movie.rating_kp %}
+                            <span class="chip">Рейтинг: {{ movie.rating_kp }}</span>
+                        {% endif %}
+                    </div>
+
+                    <h1 class="detail-card__title">{{ movie.title }}</h1>
+
+                    {% if movie.original_title and movie.original_title != movie.title %}
+                        <p class="detail-card__original">{{ movie.original_title }}</p>
+                    {% endif %}
+
+                    {% if movie.genres %}
+                        <div class="detail-card__tags">
+                            {% for genre in movie.genres %}
+                                <span class="tag">{{ genre.name }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if movie.countries %}
+                        <div class="detail-card__tags detail-card__tags--secondary">
+                            {% for country in movie.countries %}
+                                <span class="tag tag--secondary">{{ country.name }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="detail-card__block">
+                        <h2>Описание</h2>
+                        <p>
+                            {{ movie.description or movie.short_description or 'Описание пока не добавлено.' }}
+                        </p>
+                    </div>
+
+                    <div class="detail-card__block detail-card__block--action">
+                        <h2>Страница произведения</h2>
+                        <p>
+                            В текущей версии проекта вместо встроенного плеера используется ссылка на страницу произведения.
+                            Это безопаснее для учебного проекта и не требует хранения видеоконтента.
+                        </p>
+
+                        <div class="detail-card__actions">
+                            <a href="{{ movie.kinopoisk_url }}" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+                                Открыть на Кинопоиске
+                            </a>
+
+                            <a href="{{ url_for('main.index') }}" class="btn btn--secondary">
+                                Вернуться в каталог
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
