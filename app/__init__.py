@@ -34,6 +34,9 @@ def create_app():
     from app.popular_import_cli import register_popular_import_cli
     register_popular_import_cli(app)
 
+    from app.transfer_cli import register_transfer_cli
+    register_transfer_cli(app)
+
     from app.filters import register_template_filters
     register_template_filters(app)
 
