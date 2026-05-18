@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import and_, or_
@@ -24,101 +25,143 @@ class RecommendationResult:
 
 QUESTION_FIELDS = [
     "main_state",
-    "mood_direction",
-    "audience_mode",
-    "energy",
-    "mental_load",
+    "story_need",
+    "serious_type",
+    "serious_weight",
+    "comfort_type",
+    "comfort_avoid",
+    "comedy_type",
+    "humor_type",
+    "drive_type",
+    "drive_hardness",
+    "thinking_type",
+    "thinking_complexity",
+    "relationship_type",
+    "relationship_conflict",
+    "format_preference",
+    "series_style",
+    "animation_policy",
+    "age_category",
     "pace",
-    "reality_mode",
-    "warmth_need",
-    "humor_need",
-    "tension_need",
-    "romance_need",
-    "heavy_topics",
-    "ending",
-    "preferred_type",
     "rating_policy",
 ]
 
 
 ANSWER_LABELS = {
     "main_state": {
-        "sad": "грустно",
-        "anxious": "тревожно",
+        "sad": "грусть",
+        "anxious": "тревога",
         "tired": "усталость",
         "angry": "раздражение",
-        "calm": "спокойно",
-        "happy": "хорошее настроение",
-        "bored": "скучно",
+        "calm": "спокойствие",
+        "happy": "радость",
+        "bored": "скука",
         "unknown": "непонятное состояние",
     },
-    "mood_direction": {
-        "live_it": "прожить эмоцию",
-        "comfort": "стало спокойнее",
-        "laugh": "посмеяться",
-        "adrenaline": "встряхнуться",
-        "inspire": "воодушевиться",
-        "wonder": "уйти в другой мир",
-        "think": "остаться с мыслью",
+    "story_need": {
+        "serious": "серьёзная история",
+        "comfort": "спокойная история",
+        "comedy": "смешная история",
+        "drive": "напряжённая история",
+        "think": "история со смыслом",
+        "relationships": "история об отношениях",
     },
-    "audience_mode": {
-        "adult": "взрослое",
-        "not_childish": "лёгкое, но не детское",
-        "family_ok": "семейное тоже можно",
-        "animation_ok": "анимация подходит",
-        "any": "без ограничений по возрастному тону",
-    },
-    "energy": {
-        "low": "мало сил",
-        "medium": "нормальный запас сил",
-        "high": "много сил",
+    "format_preference": {
+        "FILM": "фильм",
+        "TV_SERIES": "сериал",
+        "any": "любой формат",
     },
     "pace": {
-        "slow": "спокойный темп",
+        "slow": "медленный темп",
         "medium": "ровный темп",
         "fast": "быстрый темп",
+        "any": "любой темп",
+    },
+    "rating_policy": {
+        "safe": "рейтинг важен",
+        "balanced": "рейтинг немного важен",
+        "brave": "рейтинг не важен",
     },
 }
 
 
+TEXT_KEYWORDS = {
+    "cozy": ["уют", "дом", "тепл", "добро", "добр", "забот", "поддерж", "семь", "друж", "сосед", "праздник", "маленький город"],
+    "simple": ["прост", "легк", "повседнев", "обычн", "работ", "учеб", "друз", "жизн", "город"],
+    "hope": ["надежд", "мечт", "помог", "спас", "новая жизнь", "начать заново", "примир", "исцел"],
+    "romance": ["любов", "роман", "отношен", "влюб", "чувств", "симпат", "свадь", "брак", "пара", "расстав"],
+    "friendship": ["дружб", "друз", "компания", "подруга", "друг", "команда", "вместе"],
+    "family": ["семь", "мать", "отец", "родител", "сын", "дочь", "брат", "сест", "родн"],
+    "comedy": ["комед", "смеш", "юмор", "забав", "нелеп", "курьез", "неудач", "случайн"],
+    "adult_comedy": ["вечерин", "бар", "развод", "измена", "кризис", "любовник", "любовница", "взросл"],
+    "black_humor": ["черн", "мрачн", "цинич", "абсурд", "смерт", "похорон"],
+    "investigation": ["расслед", "тайн", "загад", "детектив", "улика", "исчез", "секрет", "подозрева", "дело"],
+    "survival": ["выжив", "опасн", "ловуш", "катастроф", "плен", "остров", "борьб", "спастись"],
+    "crime": ["преступ", "кримин", "маф", "банд", "убий", "ограб", "полици", "детектив", "наркот", "тюрьм"],
+    "battle": ["противостоя", "борьб", "враг", "месть", "конфликт", "битв", "сраж"],
+    "serious": ["драма", "трудн", "сложн", "кризис", "судьб", "испытан", "потер", "траг", "болезн", "смерт"],
+    "social": ["общество", "власть", "закон", "несправедлив", "бедност", "полит", "система", "суд", "правд"],
+    "thinking": ["смысл", "память", "прошл", "будущ", "выбор", "тайн", "загад", "жизн", "справедлив", "вина"],
+    "future": ["будущ", "технолог", "робот", "космос", "планет", "галактик", "иноплан", "искусственный интеллект"],
+    "memory": ["память", "прошл", "воспомин", "детств", "тайна прошлого"],
+    "violence": ["жесток", "насили", "кров", "пытк", "маньяк", "убий"],
+    "death": ["смерт", "болезн", "умира", "похорон", "потеря", "трагед"],
+    "conflict": ["ссор", "скандал", "конфликт", "развод", "измена", "вражд"],
+}
+
+
+SERIES_COUNTRIES = {
+    "dorama": ["южная корея", "корея", "япония", "китай", "тайвань", "таиланд"],
+    "turkish": ["турция"],
+    "western": ["сша", "великобритания", "канада", "австралия"],
+    "russian": ["россия"],
+}
+
+
+BAD_GENRES = [
+    "реальное тв", "реалити-шоу", "ток-шоу", "игра", "новости",
+    "спорт", "концерт", "церемония", "документальный",
+]
+
+BAD_TEXT = [
+    "дом-2", "дом 2", "тнт", "стс", "пятница", "нтв", "телеканал",
+    "реалити", "ток-шоу", "телешоу", "передача", "выпуск",
+    "стендап", "stand up", "youtube", "ютуб", "интервью",
+]
+
+LOW_QUALITY_TV_TITLES = [
+    "тётя марта", "тетя марта", "инспектор гаврилов", "папины дочки",
+    "супер папочка", "сокровища гномов",
+]
+
+CHILDISH_WORDS = [
+    "гном", "гномов", "сказочный", "волшебный", "папины дочки",
+    "папочка", "мама вернулась", "дети", "школьник", "школьница",
+]
+
+
 def extract_answers(form):
-    answers = {}
-
-    for field in QUESTION_FIELDS:
-        answers[field] = (form.get(field) or "").strip()
-
-    return answers
+    return {field: (form.get(field) or "").strip() for field in QUESTION_FIELDS}
 
 
 def create_mood_profile(answers):
     mood_profile = MoodProfile(
         main_state=answers.get("main_state"),
-        mood_direction=answers.get("mood_direction"),
-        energy=answers.get("energy"),
-        mental_load=answers.get("mental_load"),
+        mood_direction=answers.get("story_need"),
         pace=answers.get("pace"),
-        reality_mode=answers.get("reality_mode"),
-        warmth_need=answers.get("warmth_need"),
-        humor_need=answers.get("humor_need"),
-        tension_need=answers.get("tension_need"),
-        romance_need=answers.get("romance_need"),
-        heavy_topics=answers.get("heavy_topics"),
-        ending=answers.get("ending"),
-        preferred_type=answers.get("preferred_type"),
+        preferred_type=answers.get("format_preference"),
         rating_policy=answers.get("rating_policy"),
         raw_answers=json.dumps(answers, ensure_ascii=False),
     )
-
     mood_profile.summary = build_profile_summary(answers)
-
     return mood_profile
 
 
 def build_profile_summary(answers):
     parts = []
 
-    for field in ["main_state", "mood_direction", "audience_mode", "energy", "pace"]:
-        label = get_answer_label(field, answers.get(field))
+    for field in ["main_state", "story_need", "format_preference", "pace", "rating_policy"]:
+        label = ANSWER_LABELS.get(field, {}).get(answers.get(field))
 
         if label:
             parts.append(label)
@@ -129,242 +172,361 @@ def build_profile_summary(answers):
     return "Текущий запрос: " + "; ".join(parts) + "."
 
 
-def get_answer_label(field, value):
-    return ANSWER_LABELS.get(field, {}).get(value)
-
-
-def build_user_vector(answers):
-    target = {dimension: 2.5 for dimension in DIMENSIONS}
-    weights = {dimension: 1.0 for dimension in DIMENSIONS}
-    max_values = {}
-
-    def add(dimension, value, weight=0.4):
-        target[dimension] = clamp(target[dimension] + value)
-        weights[dimension] = clamp(weights[dimension] + weight, 0.2, 4.2)
-
-    main_state = answers.get("main_state")
-    mood_direction = answers.get("mood_direction")
-
-    if main_state == "sad":
-        add("sadness", 1.2, 0.7)
-        add("catharsis", 1.0, 0.7)
-        add("warmth", 0.5, 0.5)
-
-    if main_state == "anxious":
-        add("warmth", 1.0, 0.8)
-        add("tension", -0.9, 0.8)
-        add("darkness", -0.9, 0.8)
-
-    if main_state == "tired":
-        add("lightness", 1.0, 0.8)
-        add("complexity", -1.3, 0.9)
-        add("pace", -0.7, 0.6)
-        max_values["complexity"] = 3.0
-
-    if main_state == "angry":
-        add("adrenaline", 1.4, 0.8)
-        add("pace", 1.0, 0.7)
-        add("sadness", -0.7, 0.5)
-
-    if main_state == "calm":
-        add("warmth", 0.6, 0.5)
-        add("wonder", 0.5, 0.4)
-        add("tension", -0.4, 0.4)
-
-    if main_state == "happy":
-        add("lightness", 1.0, 0.6)
-        add("humor", 0.9, 0.7)
-        add("pace", 0.4, 0.4)
-
-    if main_state == "bored":
-        add("wonder", 1.2, 0.7)
-        add("tension", 0.6, 0.5)
-        add("complexity", 0.5, 0.5)
-
-    if mood_direction == "live_it":
-        add("sadness", 1.2, 0.8)
-        add("catharsis", 1.8, 1.0)
-        add("warmth", 0.3, 0.4)
-
-    if mood_direction == "comfort":
-        add("warmth", 1.8, 1.0)
-        add("lightness", 1.0, 0.8)
-        add("darkness", -1.2, 1.0)
-        add("tension", -1.0, 0.8)
-        max_values["darkness"] = 2.7
-        max_values["tension"] = 3.0
-
-    if mood_direction == "laugh":
-        add("humor", 2.4, 1.4)
-        add("lightness", 0.9, 0.8)
-        add("sadness", -1.0, 0.7)
-        add("darkness", -1.0, 0.7)
-        max_values["darkness"] = min(max_values.get("darkness", 5), 3.0)
-
-    if mood_direction == "adrenaline":
-        add("adrenaline", 1.9, 1.0)
-        add("tension", 1.4, 0.9)
-        add("pace", 1.2, 0.7)
-
-    if mood_direction == "inspire":
-        add("inspiration", 2.0, 1.0)
-        add("catharsis", 0.8, 0.5)
-        add("warmth", 0.7, 0.4)
-
-    if mood_direction == "wonder":
-        add("wonder", 2.1, 1.0)
-        add("inspiration", 0.8, 0.5)
-        add("lightness", 0.4, 0.4)
-
-    if mood_direction == "think":
-        add("complexity", 1.4, 0.8)
-        add("catharsis", 0.7, 0.5)
-        add("sadness", 0.4, 0.4)
-
-    energy = answers.get("energy")
-
-    if energy == "low":
-        add("lightness", 0.8, 0.6)
-        add("complexity", -1.2, 0.8)
-        add("pace", -0.7, 0.5)
-        max_values["complexity"] = min(max_values.get("complexity", 5), 3.0)
-
-    if energy == "high":
-        add("pace", 1.0, 0.6)
-        add("adrenaline", 0.8, 0.5)
-
-    mental_load = answers.get("mental_load")
-
-    if mental_load == "simple":
-        add("complexity", -1.5, 1.0)
-        max_values["complexity"] = min(max_values.get("complexity", 5), 2.6)
-
-    if mental_load == "complex":
-        add("complexity", 1.4, 0.9)
-
-    desired_pace = answers.get("pace")
-
-    if desired_pace == "slow":
-        add("pace", -1.2, 0.8)
-
-    if desired_pace == "fast":
-        add("pace", 1.5, 0.8)
-        add("adrenaline", 0.5, 0.4)
-
-    reality_mode = answers.get("reality_mode")
-
-    if reality_mode == "real":
-        add("wonder", -0.8, 0.6)
-        add("romance", 0.3, 0.3)
-        add("catharsis", 0.4, 0.3)
-
-    if reality_mode == "escape":
-        add("wonder", 1.7, 0.9)
-        add("lightness", 0.4, 0.4)
-
-    warmth_need = answers.get("warmth_need")
-
-    if warmth_need == "high":
-        add("warmth", 1.7, 1.0)
-        add("darkness", -0.8, 0.7)
-
-    if warmth_need == "low":
-        add("warmth", -0.8, 0.5)
-
-    humor_need = answers.get("humor_need")
-
-    if humor_need == "high":
-        add("humor", 2.0, 1.2)
-        add("lightness", 0.7, 0.6)
-
-    if humor_need == "low":
-        add("humor", -1.0, 0.6)
-
-    tension_need = answers.get("tension_need")
-
-    if tension_need == "none":
-        add("tension", -1.6, 1.0)
-        add("darkness", -0.8, 0.7)
-        max_values["tension"] = 2.5
-
-    if tension_need == "medium":
-        add("tension", 0.5, 0.5)
-
-    if tension_need == "high":
-        add("tension", 1.8, 1.0)
-        add("adrenaline", 0.8, 0.6)
-
-    romance_need = answers.get("romance_need")
-
-    if romance_need == "yes":
-        add("romance", 1.8, 1.0)
-        add("warmth", 0.5, 0.4)
-
-    if romance_need == "no":
-        add("romance", -1.5, 0.8)
-
-    heavy_topics = answers.get("heavy_topics")
-
-    if heavy_topics == "avoid":
-        add("darkness", -1.8, 1.0)
-        add("sadness", -0.8, 0.7)
-        add("tension", -0.8, 0.7)
-        max_values["darkness"] = 2.4
-        max_values["sadness"] = 3.2
-
-    if heavy_topics == "ok":
-        add("darkness", 0.6, 0.4)
-        add("catharsis", 0.6, 0.4)
-
-    ending = answers.get("ending")
-
-    if ending == "happy":
-        add("warmth", 1.0, 0.7)
-        add("inspiration", 0.8, 0.5)
-        add("darkness", -1.0, 0.8)
-        max_values["darkness"] = min(max_values.get("darkness", 5), 3.0)
-
-    if ending == "bittersweet":
-        add("sadness", 0.8, 0.5)
-        add("catharsis", 1.0, 0.6)
-
-    return {
-        "target": {key: round(clamp(value), 2) for key, value in target.items()},
-        "weights": weights,
-        "max_values": max_values,
-        "preferred_type": answers.get("preferred_type") or "any",
-        "rating_policy": answers.get("rating_policy") or "balanced",
-        "audience_mode": answers.get("audience_mode") or "adult",
-        "mood_direction": mood_direction,
-        "humor_need": answers.get("humor_need") or "medium",
-    }
-
-
 def get_recommendations(mood_profile):
     answers = json.loads(mood_profile.raw_answers or "{}")
-    user_vector = build_user_vector(answers)
+    profile = build_user_profile(answers)
 
-    candidates = get_candidate_movies(user_vector)
-    scored_items = []
+    candidates = get_candidate_movies(profile, relaxed=False)
+    print(f"[Mood Cinema] Проанализировано кандидатов после строгих фильтров: {len(candidates)}")
 
-    for movie in candidates:
-        item = score_movie(movie, movie.emotion_profile, user_vector)
-
-        if item.score > 0:
-            scored_items.append(item)
-
+    scored_items = [score_movie(movie, movie.emotion_profile, profile) for movie in candidates]
+    scored_items = [item for item in scored_items if item.score > 0]
     scored_items.sort(key=lambda item: item.score, reverse=True)
 
-    groups = build_groups(scored_items, user_vector)
+    if len(scored_items) < 8:
+        candidates = get_candidate_movies(profile, relaxed=True)
+        print(f"[Mood Cinema] Строгих совпадений мало, мягкий режим: {len(candidates)} кандидатов")
+        scored_items = [score_movie(movie, movie.emotion_profile, profile) for movie in candidates]
+        scored_items = [item for item in scored_items if item.score > 0]
+        scored_items.sort(key=lambda item: item.score, reverse=True)
 
     return RecommendationResult(
         mood_profile=mood_profile,
         profile_summary=mood_profile.summary,
-        groups=groups,
+        groups={
+            "Рекомендации по степени совпадения": diversify_ranked_items(scored_items),
+        },
     )
 
 
-def get_candidate_movies(user_vector):
+def build_user_profile(answers):
+    target = {dimension: 2.5 for dimension in DIMENSIONS}
+    weights = {dimension: 1.0 for dimension in DIMENSIONS}
+    max_values = {}
+    min_values = {}
+
+    required_genres = set()
+    bonus_genres = set()
+    excluded_genres = set()
+
+    text_positive = []
+    text_negative = []
+
+    def add(dimension, value, weight=0.4):
+        target[dimension] = clamp(target[dimension] + value)
+        weights[dimension] = clamp(weights[dimension] + weight, 0.2, 5.0)
+
+    main_state = answers.get("main_state")
+    story_need = answers.get("story_need")
+
+    if main_state == "sad":
+        add("sadness", 0.6, 0.5)
+        add("catharsis", 0.5, 0.5)
+        add("warmth", 0.6, 0.6)
+
+    if main_state == "anxious":
+        add("warmth", 1.0, 0.8)
+        add("tension", -1.4, 1.0)
+        add("darkness", -1.3, 1.0)
+        max_values["tension"] = 2.6
+        max_values["darkness"] = 2.6
+
+    if main_state == "tired":
+        add("lightness", 1.1, 0.8)
+        add("complexity", -1.3, 1.0)
+        add("pace", -0.8, 0.7)
+        max_values["complexity"] = 2.8
+
+    if main_state == "angry":
+        add("adrenaline", 1.0, 0.7)
+        add("pace", 0.8, 0.6)
+        add("tension", 0.5, 0.5)
+
+    if main_state == "calm":
+        add("warmth", 0.7, 0.6)
+        add("tension", -0.7, 0.6)
+        add("darkness", -0.6, 0.5)
+
+    if main_state == "happy":
+        add("lightness", 1.1, 0.8)
+        add("humor", 0.9, 0.7)
+        add("warmth", 0.5, 0.5)
+
+    if main_state == "bored":
+        add("pace", 0.9, 0.6)
+        add("wonder", 0.8, 0.6)
+        add("tension", 0.4, 0.4)
+
+    if story_need == "comfort":
+        bonus_genres.update(["мелодрама", "комедия"])
+        excluded_genres.update([
+            "ужасы", "боевик", "военный", "криминал", "триллер",
+            "детектив", "мультфильм", "детский",
+        ])
+        text_positive.extend(["cozy", "hope"])
+        text_negative.extend(["violence", "death", "conflict"])
+        add("warmth", 2.2, 1.5)
+        add("lightness", 1.3, 1.0)
+        add("tension", -1.9, 1.4)
+        add("darkness", -1.9, 1.4)
+        add("complexity", -0.8, 0.7)
+        max_values["tension"] = 2.2
+        max_values["darkness"] = 2.2
+        max_values["complexity"] = 3.2
+
+    elif story_need == "comedy":
+        required_genres.add("комедия")
+        excluded_genres.update(["ужасы", "военный", "детский"])
+        text_positive.append("comedy")
+        add("humor", 2.4, 1.6)
+        add("lightness", 1.1, 0.9)
+        add("sadness", -1.0, 0.8)
+        add("darkness", -1.0, 0.8)
+        min_values["humor"] = 2.4
+        max_values["darkness"] = 3.2
+
+    elif story_need == "serious":
+        bonus_genres.update(["драма", "мелодрама", "биография"])
+        text_positive.append("serious")
+        add("catharsis", 1.1, 0.8)
+        add("sadness", 0.5, 0.5)
+        add("humor", -0.8, 0.6)
+
+    elif story_need == "drive":
+        bonus_genres.update(["триллер", "детектив", "криминал", "боевик"])
+        add("tension", 1.4, 1.0)
+        add("adrenaline", 1.5, 1.0)
+        add("pace", 1.0, 0.7)
+
+    elif story_need == "think":
+        bonus_genres.update(["драма", "детектив", "фантастика", "биография"])
+        text_positive.append("thinking")
+        add("complexity", 1.1, 0.8)
+        add("catharsis", 0.8, 0.6)
+
+    elif story_need == "relationships":
+        bonus_genres.update(["мелодрама", "драма", "комедия"])
+        text_positive.append("romance")
+        add("romance", 1.8, 1.2)
+        add("warmth", 0.9, 0.7)
+
+    apply_branch_answers(
+        answers, target, weights, max_values, min_values,
+        required_genres, bonus_genres, excluded_genres,
+        text_positive, text_negative,
+    )
+
+    pace = answers.get("pace")
+
+    if pace == "slow":
+        add("pace", -1.1, 0.8)
+
+    if pace == "fast":
+        add("pace", 1.3, 0.8)
+        add("adrenaline", 0.5, 0.4)
+
+    return {
+        "answers": answers,
+        "target": {key: round(clamp(value), 2) for key, value in target.items()},
+        "weights": weights,
+        "max_values": max_values,
+        "min_values": min_values,
+        "required_genres": required_genres,
+        "bonus_genres": bonus_genres,
+        "excluded_genres": excluded_genres,
+        "text_positive": text_positive,
+        "text_negative": text_negative,
+        "story_need": story_need or "comfort",
+        "format_preference": answers.get("format_preference") or "any",
+        "series_style": answers.get("series_style") or "any",
+        "animation_policy": answers.get("animation_policy") or "any",
+        "age_category": answers.get("age_category") or "any",
+        "pace": answers.get("pace") or "any",
+        "rating_policy": answers.get("rating_policy") or "balanced",
+    }
+
+
+def apply_branch_answers(
+    answers, target, weights, max_values, min_values,
+    required_genres, bonus_genres, excluded_genres,
+    text_positive, text_negative,
+):
+    def add(dimension, value, weight=0.4):
+        target[dimension] = clamp(target[dimension] + value)
+        weights[dimension] = clamp(weights[dimension] + weight, 0.2, 5.0)
+
+    if answers.get("comfort_type") == "cozy":
+        text_positive.append("cozy")
+        add("warmth", 1.0, 0.9)
+
+    if answers.get("comfort_type") == "simple":
+        text_positive.append("simple")
+        add("complexity", -1.1, 0.9)
+        max_values["complexity"] = min(max_values.get("complexity", 5), 2.6)
+
+    if answers.get("comfort_type") == "slow":
+        add("pace", -1.1, 0.8)
+
+    if answers.get("comfort_type") == "hopeful":
+        text_positive.append("hope")
+        add("inspiration", 1.1, 0.8)
+        add("darkness", -0.8, 0.6)
+
+    if answers.get("comfort_avoid") == "violence":
+        text_negative.append("violence")
+        excluded_genres.update(["боевик", "ужасы", "криминал", "триллер"])
+        max_values["darkness"] = min(max_values.get("darkness", 5), 2.1)
+
+    if answers.get("comfort_avoid") == "death":
+        text_negative.append("death")
+        max_values["sadness"] = min(max_values.get("sadness", 5), 2.8)
+
+    if answers.get("comfort_avoid") == "conflict":
+        text_negative.append("conflict")
+        max_values["tension"] = min(max_values.get("tension", 5), 2.3)
+
+    if answers.get("comfort_avoid") == "confusion":
+        add("complexity", -1.3, 0.9)
+        max_values["complexity"] = min(max_values.get("complexity", 5), 2.5)
+
+    if answers.get("serious_type") == "romantic":
+        bonus_genres.add("мелодрама")
+        text_positive.append("romance")
+        add("romance", 1.0, 0.7)
+
+    if answers.get("serious_type") == "family":
+        text_positive.append("family")
+        add("warmth", 0.8, 0.6)
+
+    if answers.get("serious_type") == "social":
+        text_positive.append("social")
+        add("complexity", 0.5, 0.4)
+
+    if answers.get("serious_weight") == "light":
+        add("darkness", -0.8, 0.7)
+        add("tension", -0.5, 0.5)
+        max_values["darkness"] = min(max_values.get("darkness", 5), 3.0)
+
+    if answers.get("serious_weight") == "heavy":
+        add("darkness", 1.0, 0.7)
+        add("catharsis", 0.8, 0.6)
+
+    if answers.get("comedy_type") == "everyday":
+        text_positive.append("simple")
+
+    if answers.get("comedy_type") == "romantic":
+        bonus_genres.add("мелодрама")
+        text_positive.append("romance")
+        add("romance", 0.9, 0.6)
+
+    if answers.get("comedy_type") == "adventure":
+        bonus_genres.add("приключения")
+        add("pace", 0.5, 0.4)
+        add("wonder", 0.4, 0.4)
+
+    if answers.get("comedy_type") == "friends":
+        text_positive.append("friendship")
+        add("warmth", 0.7, 0.5)
+
+    if answers.get("humor_type") == "kind":
+        add("warmth", 0.8, 0.6)
+        add("darkness", -0.6, 0.5)
+
+    if answers.get("humor_type") == "black":
+        text_positive.append("black_humor")
+        add("darkness", 0.5, 0.4)
+
+    if answers.get("humor_type") == "absurd":
+        add("wonder", 0.7, 0.5)
+
+    if answers.get("humor_type") == "adult":
+        text_positive.append("adult_comedy")
+        add("darkness", 0.2, 0.3)
+
+    if answers.get("drive_type") == "investigation":
+        bonus_genres.update(["детектив", "триллер"])
+        text_positive.append("investigation")
+        add("complexity", 0.5, 0.5)
+
+    if answers.get("drive_type") == "survival":
+        text_positive.append("survival")
+        add("adrenaline", 0.8, 0.6)
+
+    if answers.get("drive_type") == "crime":
+        bonus_genres.update(["криминал", "триллер"])
+        text_positive.append("crime")
+
+    if answers.get("drive_type") == "battle":
+        text_positive.append("battle")
+        add("tension", 0.7, 0.5)
+
+    if answers.get("drive_hardness") == "low":
+        add("darkness", -0.7, 0.5)
+        max_values["darkness"] = min(max_values.get("darkness", 5), 3.2)
+
+    if answers.get("drive_hardness") == "high":
+        add("darkness", 0.9, 0.7)
+        add("tension", 0.7, 0.5)
+
+    if answers.get("thinking_type") == "justice":
+        text_positive.append("social")
+
+    if answers.get("thinking_type") == "mystery":
+        bonus_genres.update(["детектив", "триллер"])
+        text_positive.append("investigation")
+
+    if answers.get("thinking_type") == "future":
+        bonus_genres.add("фантастика")
+        text_positive.append("future")
+
+    if answers.get("thinking_type") == "memory":
+        text_positive.append("memory")
+        add("nostalgia", 1.0, 0.7)
+
+    if answers.get("thinking_type") == "life":
+        text_positive.append("thinking")
+        add("catharsis", 0.8, 0.6)
+
+    if answers.get("thinking_complexity") == "clear":
+        add("complexity", -0.8, 0.7)
+        max_values["complexity"] = min(max_values.get("complexity", 5), 3.0)
+
+    if answers.get("thinking_complexity") == "complex":
+        add("complexity", 1.0, 0.8)
+
+    if answers.get("relationship_type") == "light_romance":
+        bonus_genres.update(["мелодрама", "комедия"])
+        text_positive.append("romance")
+        add("lightness", 0.7, 0.5)
+
+    if answers.get("relationship_type") == "dramatic_love":
+        bonus_genres.update(["мелодрама", "драма"])
+        text_positive.append("romance")
+        add("catharsis", 0.7, 0.5)
+
+    if answers.get("relationship_type") == "slow_burn":
+        text_positive.append("romance")
+        add("romance", 1.0, 0.7)
+        add("pace", -0.3, 0.3)
+
+    if answers.get("relationship_type") == "family":
+        text_positive.append("family")
+        add("warmth", 1.0, 0.7)
+
+    if answers.get("relationship_type") == "friendship":
+        text_positive.append("friendship")
+        add("warmth", 0.9, 0.6)
+
+    if answers.get("relationship_conflict") == "low":
+        add("tension", -0.8, 0.6)
+        max_values["tension"] = min(max_values.get("tension", 5), 3.0)
+
+    if answers.get("relationship_conflict") == "high":
+        add("tension", 0.7, 0.5)
+        add("catharsis", 0.5, 0.4)
+
+
+def get_candidate_movies(profile, relaxed=False):
     query = (
         Movie.query
         .join(MovieEmotionProfile)
@@ -377,483 +539,399 @@ def get_candidate_movies(user_vector):
         )
     )
 
-    preferred_type = user_vector["preferred_type"]
-
-    if preferred_type in ["FILM", "TV_SERIES"]:
-        query = query.filter(Movie.type == preferred_type)
+    if profile["format_preference"] in ["FILM", "TV_SERIES"]:
+        query = query.filter(Movie.type == profile["format_preference"])
 
     movies = query.all()
-
     result = []
 
     for movie in movies:
-        audience = get_audience_flags(movie, movie.emotion_profile.to_dict())
+        scores = movie.emotion_profile.to_dict()
 
-        if must_exclude_by_audience(audience, user_vector["audience_mode"]):
+        if is_bad_content(movie, profile):
             continue
 
-        if violates_hard_limits(movie, movie.emotion_profile.to_dict(), user_vector):
-            continue
+        if not relaxed:
+            if violates_animation_or_age(movie, profile):
+                continue
+
+            if violates_series_style(movie, profile):
+                continue
+
+            if violates_hard_limits(movie, scores, profile):
+                continue
 
         result.append(movie)
 
     return result
 
 
-def violates_hard_limits(movie, scores, user_vector):
-    for dimension, max_value in user_vector["max_values"].items():
-        if scores.get(dimension, 0) > max_value + 0.7:
-            return True
+def violates_animation_or_age(movie, profile):
+    genres = get_genre_names(movie)
 
-    if user_vector["mood_direction"] == "laugh":
-        if scores.get("humor", 0) < 2.4 and not has_genre(movie, ["комедия"]):
-            return True
+    is_cartoon = has_any_genre(genres, ["мультфильм"])
+    is_anime = has_any_genre(genres, ["аниме"])
+    is_family = has_any_genre(genres, ["семейный"])
+    is_children = has_any_genre(genres, ["детский"])
+    is_childish_text = any(word in get_movie_text(movie) for word in CHILDISH_WORDS)
 
-    if user_vector["rating_policy"] == "safe":
-        if movie.rating_kp is None or movie.rating_kp < 6.8:
+    animation_policy = profile["animation_policy"]
+    age_category = profile["age_category"]
+    story_need = profile["story_need"]
+
+    if animation_policy == "no" and (is_cartoon or is_anime):
+        return True
+
+    if animation_policy == "not_childish" and (is_cartoon or is_family or is_children or is_childish_text):
+        return True
+
+    if age_category == "adult" and (is_cartoon or is_anime or is_family or is_children or is_childish_text):
+        return True
+
+    if age_category == "teen" and (is_children or is_cartoon or is_childish_text):
+        return True
+
+    if story_need in ["comfort", "comedy"] and age_category in ["", "any"]:
+        if is_cartoon or is_family or is_children or is_childish_text:
             return True
 
     return False
 
 
-def score_movie(movie, emotion_profile, user_vector):
-    scores = emotion_profile.to_dict()
-    audience = get_audience_flags(movie, scores)
+def violates_series_style(movie, profile):
+    style = profile["series_style"]
 
+    if style in ["", "any"]:
+        return False
+
+    if movie.type != "TV_SERIES":
+        return False
+
+    genres = get_genre_names(movie)
+    countries = get_country_names(movie)
+
+    if style == "anime":
+        return not has_any_genre(genres, ["аниме"])
+
+    expected = SERIES_COUNTRIES.get(style)
+
+    if not expected:
+        return False
+
+    return not any(country_part in country for country_part in expected for country in countries)
+
+
+def violates_hard_limits(movie, scores, profile):
+    for dimension, max_value in profile["max_values"].items():
+        if scores.get(dimension, 0) > max_value + 0.6:
+            return True
+
+    for dimension, min_value in profile["min_values"].items():
+        if scores.get(dimension, 0) < min_value - 0.6:
+            return True
+
+    if profile["rating_policy"] == "safe":
+        if movie.rating_kp is None or movie.rating_kp < 6.7:
+            return True
+
+    if profile["story_need"] == "comfort":
+        if has_genre(movie, ["ужасы", "боевик", "военный", "криминал", "триллер", "детектив", "мультфильм", "детский"]):
+            return True
+
+    if profile["story_need"] == "comedy":
+        if scores.get("humor", 0) < 2.2 and not has_genre(movie, ["комедия"]):
+            return True
+
+    return False
+
+
+def score_movie(movie, emotion_profile, profile):
+    scores = emotion_profile.to_dict()
     total = 0.0
-    tags = []
 
     for dimension in DIMENSIONS:
         movie_value = scores.get(dimension, 0)
-        target_value = user_vector["target"].get(dimension, 2.5)
-        weight = user_vector["weights"].get(dimension, 1.0)
+        target_value = profile["target"].get(dimension, 2.5)
+        weight = profile["weights"].get(dimension, 1.0)
 
         closeness = 5 - abs(movie_value - target_value)
         total += max(0, closeness) * weight
 
-    total += score_genre_fit(movie, scores, user_vector)
-    total += audience_bonus_or_penalty(audience, user_vector["audience_mode"], scores)
-    total += score_rating(movie, user_vector["rating_policy"])
+    total += score_genres(movie, profile)
+    total += score_text(movie, profile)
+    total += score_rating(movie, profile["rating_policy"])
+    total += score_story_need(movie, scores, profile)
+    total += score_format_details(movie, profile)
+    total += quality_penalty(movie, profile)
 
-    if user_vector["mood_direction"] == "laugh":
-        total += score_laugh_request(movie, scores, audience, user_vector)
-
-    if scores.get("darkness", 0) <= 2.2 and scores.get("warmth", 0) >= 3.0:
-        tags.append("мягкое")
-
-    if scores.get("humor", 0) >= 3.5:
-        tags.append("есть юмор")
-
-    if scores.get("tension", 0) >= 3.8:
-        tags.append("держит в напряжении")
-
-    if scores.get("romance", 0) >= 3.5:
-        tags.append("есть романтическая линия")
-
-    if scores.get("wonder", 0) >= 3.5:
-        tags.append("уносит из реальности")
-
-    if scores.get("catharsis", 0) >= 3.5:
-        tags.append("эмоциональное проживание")
-
-    if scores.get("inspiration", 0) >= 3.5:
-        tags.append("может вдохновить")
-
-    reason = build_reason(movie, scores, user_vector, tags, audience)
+    tags = build_tags(movie, scores, profile)
 
     return RecommendedItem(
         movie=movie,
         score=round(total, 2),
-        reason=reason,
+        reason="",
         tags=tags[:4],
     )
 
 
-def score_genre_fit(movie, scores, user_vector):
-    mood_direction = user_vector["mood_direction"]
-    total = 0
+def score_genres(movie, profile):
+    total = 0.0
+    genres = get_genre_names(movie)
 
-    if mood_direction == "laugh":
-        if has_genre(movie, ["комедия"]):
-            total += 18
+    for genre in profile["required_genres"]:
+        total += 20 if any(genre in name for name in genres) else -12
 
-        if has_genre(movie, ["мультфильм", "детский", "семейный"]):
-            total -= 25
-
-    if mood_direction == "adrenaline":
-        if has_genre(movie, ["боевик", "триллер", "криминал", "детектив"]):
-            total += 12
-
-    if mood_direction == "wonder":
-        if has_genre(movie, ["фантастика", "фэнтези", "приключения"]):
-            total += 12
-
-    if mood_direction == "live_it":
-        if has_genre(movie, ["драма", "мелодрама"]):
+    for genre in profile["bonus_genres"]:
+        if any(genre in name for name in genres):
             total += 10
 
-    if mood_direction == "comfort":
-        if has_genre(movie, ["семейный", "мелодрама", "комедия"]):
-            total += 5
+    for genre in profile["excluded_genres"]:
+        if any(genre in name for name in genres):
+            total -= 40
+
+    return total
+
+
+def score_text(movie, profile):
+    text = get_movie_text(movie)
+    total = 0.0
+
+    for group in profile["text_positive"]:
+        total += count_keyword_hits(text, TEXT_KEYWORDS.get(group, [])) * 5.5
+
+    for group in profile["text_negative"]:
+        total -= count_keyword_hits(text, TEXT_KEYWORDS.get(group, [])) * 9.0
 
     return total
 
 
 def score_rating(movie, rating_policy):
     if movie.rating_kp is None:
-        return -4
+        return -5
+
+    rating = min(movie.rating_kp, 10)
 
     if rating_policy == "safe":
-        return min(movie.rating_kp, 10) * 2.4
+        return rating * 2.8
 
     if rating_policy == "balanced":
-        return min(movie.rating_kp, 10) * 1.8
+        return rating * 1.8
 
-    return min(movie.rating_kp, 10) * 1.1
-
-
-def score_laugh_request(movie, scores, audience, user_vector):
-    total = 0
-
-    if scores.get("humor", 0) >= 4.0:
-        total += 16
-    elif scores.get("humor", 0) >= 3.0:
-        total += 9
-    else:
-        total -= 14
-
-    if has_genre(movie, ["комедия"]):
-        total += 12
-
-    if user_vector["audience_mode"] in ["adult", "not_childish"]:
-        if audience["animation"] or audience["family"] or audience["childlike"]:
-            total -= 50
-
-    if scores.get("darkness", 0) > 3.3:
-        total -= 8
-
-    if scores.get("sadness", 0) > 3.5:
-        total -= 6
-
-    return total
+    return rating * 0.8
 
 
-def must_exclude_by_audience(audience, audience_mode):
-    if audience_mode in ["adult", "not_childish"]:
-        if audience["cartoon"] or audience["children"] or audience["family"]:
-            return True
-
-    if audience_mode == "adult" and audience["animation"]:
-        return True
-
-    return False
-
-
-def audience_bonus_or_penalty(audience, audience_mode, scores):
+def score_story_need(movie, scores, profile):
+    story_need = profile["story_need"]
     total = 0.0
 
-    if audience_mode == "adult":
-        if audience["adult_genre"]:
-            total += 7
+    if story_need == "comfort":
+        if scores.get("warmth", 0) >= 3.5:
+            total += 18
+        if scores.get("darkness", 0) <= 2.2:
+            total += 16
+        if scores.get("tension", 0) <= 2.3:
+            total += 14
+        if scores.get("complexity", 0) <= 3.0:
+            total += 8
+        if movie.type == "TV_SERIES" and profile["format_preference"] != "TV_SERIES":
+            total -= 12
 
-        if audience["animation"] or audience["family"] or audience["children"]:
-            total -= 80
+    if story_need == "comedy":
+        if scores.get("humor", 0) >= 4:
+            total += 20
+        elif scores.get("humor", 0) >= 3:
+            total += 12
+        else:
+            total -= 12
 
-    if audience_mode == "not_childish":
-        if audience["adult_genre"]:
-            total += 3
-
-        if audience["animation"] or audience["family"] or audience["children"]:
-            total -= 70
-
-    if audience_mode == "family_ok":
-        if audience["family"] or audience["children"]:
+    if story_need == "drive":
+        if scores.get("tension", 0) >= 3.5:
+            total += 12
+        if scores.get("adrenaline", 0) >= 3.5:
             total += 12
 
-        if scores.get("darkness", 0) > 3.5:
-            total -= 10
+    if story_need == "serious":
+        if scores.get("catharsis", 0) >= 3.3:
+            total += 12
+        if scores.get("humor", 0) >= 4:
+            total -= 8
 
-    if audience_mode == "animation_ok":
-        if audience["animation"]:
-            total += 10
+    if story_need == "think":
+        if scores.get("complexity", 0) >= 3.3:
+            total += 12
+        if scores.get("catharsis", 0) >= 3.0:
+            total += 6
 
-    if audience_mode == "any":
-        if audience["children"]:
-            total -= 3
+    if story_need == "relationships":
+        if scores.get("romance", 0) >= 3.4:
+            total += 14
+        if scores.get("warmth", 0) >= 3.2:
+            total += 8
 
     return total
 
 
-def get_audience_flags(movie, scores):
-    genre_names = get_genre_names(movie)
+def score_format_details(movie, profile):
+    total = 0.0
 
-    text = " ".join(
-        [
-            movie.title or "",
-            movie.original_title or "",
-            movie.description or "",
-            movie.short_description or "",
-            " ".join(genre_names),
-        ]
-    ).lower()
+    if movie.type == "TV_SERIES" and profile["series_style"] not in ["", "any"]:
+        if not violates_series_style(movie, profile):
+            total += 18
 
-    cartoon = any("мультфильм" in genre for genre in genre_names)
-    children = any("детский" in genre for genre in genre_names)
-    family = any("семейный" in genre for genre in genre_names)
-    anime = any("аниме" in genre for genre in genre_names)
+    genres = get_genre_names(movie)
+    is_animation = has_any_genre(genres, ["мультфильм", "аниме"])
 
-    adult_genres = [
-        "триллер",
-        "криминал",
-        "детектив",
-        "драма",
-        "ужасы",
-        "военный",
-        "боевик",
-        "биография",
-    ]
+    if profile["animation_policy"] == "yes" and is_animation:
+        total += 10
 
-    adult_keywords = [
-        "убий",
-        "преступ",
-        "расслед",
-        "насили",
-        "война",
-        "смерть",
-        "кров",
-        "месть",
-        "маньяк",
-        "кризис",
-        "измена",
-        "развод",
-    ]
+    if profile["animation_policy"] == "not_childish" and is_animation:
+        total -= 20
 
-    adult_genre = any(
-        adult_genre in genre
-        for genre in genre_names
-        for adult_genre in adult_genres
-    )
-
-    adult_keyword = any(keyword in text for keyword in adult_keywords)
-
-    animation = cartoon or anime
-
-    childlike = (
-        (cartoon or children or family)
-        and not anime
-        and not adult_genre
-        and not adult_keyword
-        and scores.get("darkness", 0) < 3.0
-        and scores.get("tension", 0) < 3.2
-    )
-
-    return {
-        "animation": animation,
-        "cartoon": cartoon,
-        "anime": anime,
-        "children": children,
-        "family": family,
-        "adult_genre": adult_genre,
-        "adult_keyword": adult_keyword,
-        "childlike": childlike,
-    }
+    return total
 
 
-def build_reason(movie, scores, user_vector, tags, audience):
-    reason_parts = []
+def quality_penalty(movie, profile):
+    penalty = 0
+    text = get_movie_text(movie)
+    countries = get_country_names(movie)
+    genres = get_genre_names(movie)
 
-    audience_mode = user_vector["audience_mode"]
+    if movie.rating_kp is not None and movie.rating_kp < 6.2:
+        penalty -= 25
 
-    if audience_mode == "adult":
-        reason_parts.append("взрослый зрительский тон")
+    if movie.type == "TV_SERIES" and "россия" in countries and profile["series_style"] != "russian":
+        if has_any_genre(genres, ["комедия", "семейный", "детектив"]):
+            penalty -= 45
 
-    if audience_mode == "not_childish":
-        reason_parts.append("лёгкость без детского ощущения")
+    if profile["story_need"] == "comfort":
+        if any(word in text for word in ["полиция", "следователь", "участковый", "преступление", "убийство", "расследование"]):
+            penalty -= 40
 
-    if audience_mode == "family_ok" and (audience["family"] or audience["children"]):
-        reason_parts.append("подходит для семейного режима")
+        if any(word in text for word in CHILDISH_WORDS):
+            penalty -= 45
 
-    if audience_mode == "animation_ok" and audience["animation"]:
-        reason_parts.append("анимация допустима по запросу")
-
-    important_dimensions = sorted(
-        DIMENSIONS,
-        key=lambda dimension: user_vector["weights"].get(dimension, 1.0),
-        reverse=True,
-    )
-
-    for dimension in important_dimensions:
-        if len(reason_parts) >= 4:
-            break
-
-        movie_value = scores.get(dimension, 0)
-        target_value = user_vector["target"].get(dimension, 2.5)
-
-        if abs(movie_value - target_value) <= 1.1:
-            label = dimension_label(dimension)
-
-            if label:
-                reason_parts.append(label)
-
-    reason_parts.extend(tags[:2])
-
-    if movie.rating_kp and movie.rating_kp >= 7.5:
-        reason_parts.append("хороший рейтинг")
-
-    unique_parts = []
-
-    for part in reason_parts:
-        if part not in unique_parts:
-            unique_parts.append(part)
-
-    if not unique_parts:
-        return "Почему подходит: совпадает по настроению, темпу и содержанию."
-
-    return "Почему подходит: " + ", ".join(unique_parts[:4]) + "."
+    return penalty
 
 
-def dimension_label(dimension):
-    labels = {
-        "lightness": "лёгкость",
-        "humor": "юмор",
-        "warmth": "тепло",
-        "romance": "романтичность",
-        "sadness": "грустная окраска",
-        "catharsis": "эмоциональное проживание",
-        "tension": "напряжение",
-        "adrenaline": "динамика",
-        "wonder": "ощущение другого мира",
-        "inspiration": "воодушевление",
-        "nostalgia": "ностальгичность",
-        "darkness": "мрачная атмосфера",
-        "complexity": "подходящая сложность",
-        "pace": "подходящий темп",
-    }
-
-    return labels.get(dimension)
-
-
-def build_groups(scored_items, user_vector):
-    used_ids = set()
-
-    best = take_diverse(scored_items, used_ids, 12)
-
-    soft_candidates = sorted(
-        scored_items,
-        key=lambda item: (
-            item.movie.emotion_profile.warmth
-            + item.movie.emotion_profile.lightness
-            - item.movie.emotion_profile.darkness
-            - item.movie.emotion_profile.tension
-            + item.score * 0.05
-        ),
-        reverse=True,
-    )
-
-    soft = take_diverse(soft_candidates, used_ids, 8)
-
-    deep_candidates = sorted(
-        scored_items,
-        key=lambda item: (
-            item.movie.emotion_profile.catharsis
-            + item.movie.emotion_profile.sadness
-            + item.movie.emotion_profile.inspiration
-            + item.score * 0.05
-        ),
-        reverse=True,
-    )
-
-    deep = take_diverse(deep_candidates, used_ids, 8)
-
-    surprise_candidates = sorted(
-        scored_items,
-        key=lambda item: (
-            item.movie.emotion_profile.wonder
-            + item.movie.emotion_profile.complexity
-            + item.movie.emotion_profile.adrenaline
-            + item.score * 0.04
-        ),
-        reverse=True,
-    )
-
-    surprise = take_diverse(surprise_candidates, used_ids, 8)
-
-    return {
-        "Лучшее совпадение": best,
-        "Мягкий запасной вариант": soft,
-        "Если хочется глубже": deep,
-        "Неожиданный выбор": surprise,
-    }
-
-
-def take_diverse(items, used_ids, limit):
+def diversify_ranked_items(scored_items):
     result = []
-    genre_counter = {}
-    type_counter = {}
+    title_roots = set()
 
-    for item in items:
-        movie = item.movie
+    for item in scored_items:
+        title_root = normalize_text(item.movie.title or "")[:18]
 
-        if movie.id in used_ids:
+        if title_root in title_roots:
             continue
 
-        main_genre = get_main_genre(movie)
-        movie_type = movie.type or "UNKNOWN"
-
-        if genre_counter.get(main_genre, 0) >= 4:
-            continue
-
-        if type_counter.get(movie_type, 0) >= max(5, limit - 2):
-            continue
-
-        used_ids.add(movie.id)
+        title_roots.add(title_root)
         result.append(item)
-
-        genre_counter[main_genre] = genre_counter.get(main_genre, 0) + 1
-        type_counter[movie_type] = type_counter.get(movie_type, 0) + 1
-
-        if len(result) >= limit:
-            break
-
-    if len(result) < limit:
-        for item in items:
-            if item.movie.id in used_ids:
-                continue
-
-            used_ids.add(item.movie.id)
-            result.append(item)
-
-            if len(result) >= limit:
-                break
 
     return result
 
 
-def get_genre_names(movie):
-    return [
-        genre.name.lower().strip()
-        for genre in movie.genres
-        if genre.name
-    ]
+def build_tags(movie, scores, profile):
+    tags = []
+
+    if profile["story_need"] == "comfort":
+        tags.append("спокойный запрос")
+    if profile["story_need"] == "comedy":
+        tags.append("смешная история")
+    if profile["story_need"] == "drive":
+        tags.append("напряжение")
+    if profile["story_need"] == "serious":
+        tags.append("серьёзная история")
+    if profile["story_need"] == "think":
+        tags.append("со смыслом")
+    if profile["story_need"] == "relationships":
+        tags.append("про отношения")
+
+    if scores.get("humor", 0) >= 3.5:
+        tags.append("юмор")
+    if scores.get("warmth", 0) >= 3.5:
+        tags.append("тепло")
+    if scores.get("tension", 0) >= 3.7:
+        tags.append("держит внимание")
+    if scores.get("romance", 0) >= 3.5:
+        tags.append("отношения")
+    if scores.get("complexity", 0) >= 3.5:
+        tags.append("сложнее среднего")
+    if movie.rating_kp and movie.rating_kp >= 7.5:
+        tags.append("высокий рейтинг")
+
+    return list(dict.fromkeys(tags))
 
 
-def has_genre(movie, target_genres):
-    genre_names = get_genre_names(movie)
+def is_bad_content(movie, profile):
+    genres = get_genre_names(movie)
+    text = get_movie_text(movie)
+    title = normalize_text(movie.title or "")
 
-    return any(
-        target_genre in genre_name
-        for target_genre in target_genres
-        for genre_name in genre_names
+    if has_any_genre(genres, BAD_GENRES):
+        return True
+
+    if any(bad in text for bad in BAD_TEXT):
+        return True
+
+    if any(bad_title in title for bad_title in LOW_QUALITY_TV_TITLES):
+        return True
+
+    if profile["story_need"] == "comfort":
+        if movie.type == "TV_SERIES" and "россия" in get_country_names(movie) and profile["series_style"] != "russian":
+            if has_any_genre(genres, ["комедия", "семейный", "детектив"]):
+                return True
+
+    return False
+
+
+def get_movie_text(movie):
+    return normalize_text(
+        " ".join([
+            movie.title or "",
+            movie.original_title or "",
+            movie.description or "",
+            movie.short_description or "",
+            " ".join(get_genre_names(movie)),
+            " ".join(get_country_names(movie)),
+        ])
     )
 
 
+def normalize_text(value):
+    value = (value or "").lower().replace("ё", "е")
+    value = re.sub(r"[^а-яa-z0-9\s-]", " ", value)
+    value = re.sub(r"\s+", " ", value)
+    return value.strip()
+
+
+def count_keyword_hits(text, keywords):
+    return sum(1 for keyword in keywords if normalize_text(keyword) in text)
+
+
+def get_genre_names(movie):
+    return [normalize_text(genre.name) for genre in movie.genres if genre.name]
+
+
+def get_country_names(movie):
+    return [normalize_text(country.name) for country in movie.countries if country.name]
+
+
+def has_genre(movie, target_genres):
+    return has_any_genre(get_genre_names(movie), target_genres)
+
+
+def has_any_genre(genre_names, target_genres):
+    target_genres = [normalize_text(genre) for genre in target_genres]
+    return any(target in genre_name for target in target_genres for genre_name in genre_names)
+
+
 def get_main_genre(movie):
-    genre_names = get_genre_names(movie)
+    genres = get_genre_names(movie)
+    return genres[0] if genres else "unknown"
 
-    if not genre_names:
-        return "unknown"
 
-    return genre_names[0]
+def get_main_country(movie):
+    countries = get_country_names(movie)
+    return countries[0] if countries else "unknown"
 
 
 def clamp(value, min_value=0.0, max_value=5.0):

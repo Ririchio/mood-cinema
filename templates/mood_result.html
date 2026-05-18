@@ -7,72 +7,67 @@
 {% endblock %}
 
 {% block content %}
-{% set mood_theme = result.mood_profile.main_state if result.mood_profile.main_state else 'neutral' %}
-
-<section class="mood-page mood-page--result mood-theme mood-theme--{{ mood_theme }}">
+<section
+    class="mood-page mood-page--result mood-theme mood-theme--{{ result.mood_profile.main_state or 'neutral' }}"
+    data-mood-theme-root
+>
     <div class="container">
         <div class="mood-result-hero">
-            <p class="mood-hero__eyebrow">Готово</p>
-            <h1>Вот что может попасть в сегодняшний вечер</h1>
+            <p class="mood-hero__eyebrow">Результат подбора</p>
+            <h1>Подборка по степени совпадения</h1>
             <p>{{ result.profile_summary }}</p>
 
             <div class="mood-result-hero__actions">
                 <a href="{{ url_for('mood.form') }}" class="btn btn--primary">Пройти заново</a>
-                <a href="{{ url_for('main.index') }}" class="btn btn--secondary">Вернуться в каталог</a>
+                <a href="{{ url_for('main.index') }}" class="btn btn--ghost">Вернуться в каталог</a>
             </div>
         </div>
 
-        {% for group_title, items in result.groups.items() %}
+        {% for group_name, items in result.groups.items() %}
             {% if items %}
                 <section class="recommendation-group">
                     <div class="recommendation-group__head">
-                        <h2>{{ group_title }}</h2>
-
-                        {% if group_title == 'Лучшее совпадение' %}
-                            <p>Самые точные варианты по сумме настроения, желаемого эффекта и параметров фильма.</p>
-                        {% elif group_title == 'Мягкий запасной вариант' %}
-                            <p>Более спокойные варианты, если хочется не усиливать состояние, а бережно переключиться.</p>
-                        {% elif group_title == 'Если хочется глубже' %}
-                            <p>Истории с более сильным эмоциональным послевкусием: не обязательно лёгкие, зато цепляющие.</p>
-                        {% elif group_title == 'Неожиданный выбор' %}
-                            <p>Не самые очевидные совпадения: могут подойти не жанром, а атмосферой, темпом или эффектом.</p>
-                        {% else %}
-                            <p>Подборка собрана по совпадению эмоционального запроса и признаков произведений.</p>
-                        {% endif %}
+                        <h2>{{ group_name }}</h2>
+                        <p>Сначала идут фильмы и сериалы, которые сильнее всего совпали с выбранным состоянием и параметрами.</p>
                     </div>
 
                     <div class="recommendation-grid">
                         {% for item in items %}
+                            {% set movie = item.movie %}
+                            {% set description = movie.description or movie.short_description or 'Описание пока не добавлено.' %}
+
                             <article class="recommendation-card">
-                                <a href="{{ url_for('main.detail', movie_id=item.movie.id) }}" class="recommendation-card__poster">
-                                    <img
-                                        src="{{ item.movie.poster_url }}"
-                                        alt="{{ item.movie.title }}"
-                                        loading="lazy"
-                                    >
+                                <a href="{{ url_for('main.detail', movie_id=movie.id) }}" class="recommendation-card__poster">
+                                    <img src="{{ movie.poster_url }}" alt="{{ movie.title }}">
                                 </a>
 
                                 <div class="recommendation-card__body">
                                     <div class="recommendation-card__meta">
-                                        <span>{{ item.movie.type_label() }}</span>
+                                        <span>
+                                            {% if movie.type == 'TV_SERIES' %}
+                                                Сериал
+                                            {% else %}
+                                                Фильм
+                                            {% endif %}
+                                        </span>
 
-                                        {% if item.movie.year %}
-                                            <span>{{ item.movie.year }}</span>
+                                        {% if movie.year %}
+                                            <span>{{ movie.year }}</span>
                                         {% endif %}
 
-                                        {% if item.movie.rating_kp %}
-                                            <span>Рейтинг {{ item.movie.rating_kp }}</span>
+                                        {% if movie.rating_kp %}
+                                            <span>Рейтинг {{ "%.1f"|format(movie.rating_kp) }}</span>
                                         {% endif %}
                                     </div>
 
                                     <h3>
-                                        <a href="{{ url_for('main.detail', movie_id=item.movie.id) }}">
-                                            {{ item.movie.title }}
+                                        <a href="{{ url_for('main.detail', movie_id=movie.id) }}">
+                                            {{ movie.title }}
                                         </a>
                                     </h3>
 
                                     <p class="recommendation-card__reason">
-                                        {{ item.reason }}
+                                        {{ description|striptags|truncate(280, True) }}
                                     </p>
 
                                     {% if item.tags %}
@@ -83,8 +78,8 @@
                                         </div>
                                     {% endif %}
 
-                                    <a href="{{ url_for('main.detail', movie_id=item.movie.id) }}" class="recommendation-card__link">
-                                        Открыть карточку
+                                    <a href="{{ url_for('main.detail', movie_id=movie.id) }}" class="recommendation-card__link">
+                                        Подробнее
                                     </a>
                                 </div>
                             </article>
@@ -95,4 +90,6 @@
         {% endfor %}
     </div>
 </section>
+
+<script src="{{ url_for('static', filename='js/mood-theme.js') }}"></script>
 {% endblock %}
