@@ -3,6 +3,11 @@
 {% block title %}{{ movie.title }}{% endblock %}
 
 {% block content %}
+<div class="container">
+    <button type="button" class="back-button" onclick="goBackToPreviousPage()">
+        ← Назад
+    </button>
+</div>
 <section class="detail-section">
     <div class="container">
         <div class="detail-layout">
@@ -92,4 +97,13 @@
         </div>
     </div>
 </section>
+<script>
+    function goBackToPreviousPage() {
+        if (document.referrer && document.referrer !== window.location.href) {
+            window.history.back();
+        } else {
+            window.location.href = "{{ url_for('main.index') }}";
+        }
+    }
+</script>
 {% endblock %}

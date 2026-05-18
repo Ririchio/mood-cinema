@@ -1737,3 +1737,37 @@ select {
         transform: none !important;
     }
 }
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 28px 0 18px;
+    padding: 12px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 248, 239, 0.86);
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease;
+}
+
+.back-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .back-button {
+        margin: 18px 0 12px;
+        padding: 11px 16px;
+        font-size: 0.9rem;
+    }
+}
