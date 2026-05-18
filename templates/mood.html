@@ -9,29 +9,33 @@
 {% block content %}
 <section
     id="mood-theme-root"
-    class="mood-page mood-page--form mood-theme mood-theme--neutral"
+    class="mood-page mood-page--form mood-theme mood-theme--neutral mood-screen"
     data-mood-theme-root
 >
-    <div class="container">
-        <div class="mood-hero mood-hero--cinema">
-            <div class="mood-hero__content">
+    <div class="container mood-screen__container">
+        <div class="mood-hero mood-hero--cinema mood-shell mood-hero-v2">
+            <div class="mood-hero__content mood-hero-v2__content">
                 <p class="mood-hero__eyebrow">Подбор по состоянию</p>
-                <h1>Ответь на несколько вопросов — и система подберёт кино под вечер.</h1>
+                <h1>Кино под настроение</h1>
                 <p>
-                    Вопросы появляются по одному. Следующий вопрос зависит от предыдущего ответа.
+                    Ответь на короткие вопросы. Система учтёт настроение, формат,
+                    темп и тон истории.
                 </p>
             </div>
 
-            <div class="mood-hero__note">
-                <span data-wizard-counter>1 / 1</span>
-                <p>вопрос за раз</p>
+            <div class="mood-hero__note mood-progress-card">
+                <span data-wizard-counter>1 / 8</span>
+                <p>шаг подбора</p>
+                <div class="mood-progress">
+                    <span data-wizard-progress></span>
+                </div>
             </div>
         </div>
 
         <form
             method="post"
             action="{{ url_for('mood.result') }}"
-            class="mood-form mood-wizard"
+            class="mood-form mood-wizard mood-shell mood-wizard-v2"
             data-mood-wizard
         >
             {% for question in questions %}
@@ -46,6 +50,7 @@
                         <span class="mood-question__number" data-question-number>{{ loop.index }}</span>
 
                         <div>
+                            <p class="mood-question__kicker">Вопрос</p>
                             <h2>{{ question.title }}</h2>
                         </div>
                     </div>

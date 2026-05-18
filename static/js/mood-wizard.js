@@ -5,11 +5,14 @@
         return;
     }
 
+    const FIXED_TOTAL_STEPS = 8;
+
     const questions = Array.from(wizard.querySelectorAll("[data-question]"));
     const nextButton = wizard.querySelector("[data-wizard-next]");
     const submitButton = wizard.querySelector("[data-wizard-submit]");
     const message = wizard.querySelector("[data-wizard-message]");
     const counter = document.querySelector("[data-wizard-counter]");
+    const progress = document.querySelector("[data-wizard-progress]");
 
     let currentIndex = 0;
 
@@ -101,27 +104,38 @@
     }
 
     function showMessage() {
-        if (message) {
-            message.hidden = false;
-            message.style.display = "block";
+        if (!message) {
+            return;
         }
+
+        message.hidden = false;
+        message.style.display = "block";
     }
 
     function hideMessage() {
-        if (message) {
-            message.hidden = true;
-            message.style.display = "none";
+        if (!message) {
+            return;
         }
+
+        message.hidden = true;
+        message.style.display = "none";
     }
 
-    function updateQuestionNumbers(visibleQuestions) {
-        visibleQuestions.forEach((question, index) => {
-            const number = question.querySelector("[data-question-number]");
+    function getDisplayStep(visibleQuestions, isLastQuestion) {
+        if (isLastQuestion) {
+            return FIXED_TOTAL_STEPS;
+        }
 
-            if (number) {
-                number.textContent = index + 1;
-            }
-        });
+        return Math.min(currentIndex + 1, FIXED_TOTAL_STEPS - 1);
+    }
+
+    function updateQuestionNumbers(displayStep) {
+        const currentQuestion = getCurrentQuestion();
+        const number = currentQuestion.querySelector("[data-question-number]");
+
+        if (number) {
+            number.textContent = displayStep;
+        }
     }
 
     function render() {
@@ -129,6 +143,8 @@
 
         const visibleQuestions = getVisibleQuestions();
         const currentQuestion = getCurrentQuestion();
+        const isLastQuestion = currentIndex === visibleQuestions.length - 1;
+        const displayStep = getDisplayStep(visibleQuestions, isLastQuestion);
 
         questions.forEach((question) => {
             const shouldShow = question === currentQuestion;
@@ -136,13 +152,15 @@
             question.style.display = shouldShow ? "" : "none";
         });
 
-        updateQuestionNumbers(visibleQuestions);
+        updateQuestionNumbers(displayStep);
 
         if (counter) {
-            counter.textContent = `${currentIndex + 1} / ${visibleQuestions.length}`;
+            counter.textContent = `${displayStep} / ${FIXED_TOTAL_STEPS}`;
         }
 
-        const isLastQuestion = currentIndex === visibleQuestions.length - 1;
+        if (progress) {
+            progress.style.width = `${(displayStep / FIXED_TOTAL_STEPS) * 100}%`;
+        }
 
         showOnly(nextButton, !isLastQuestion);
         showOnly(submitButton, isLastQuestion);
@@ -153,7 +171,7 @@
     function scrollToWizard() {
         wizard.scrollIntoView({
             behavior: "smooth",
-            block: "start",
+            block: "center",
         });
     }
 
