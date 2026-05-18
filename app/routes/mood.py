@@ -13,11 +13,9 @@ mood_bp = Blueprint("mood", __name__, url_prefix="/mood")
 
 @mood_bp.route("/", methods=["GET"])
 def form():
-    questions = get_mood_questions()
-
     return render_template(
         "mood.html",
-        questions=questions,
+        questions=get_mood_questions(),
     )
 
 
@@ -25,7 +23,7 @@ def form():
 def result():
     answers = extract_answers(request.form)
 
-    if not answers.get("main_state") or not answers.get("mood_direction"):
+    if not answers.get("main_state") or not answers.get("story_need"):
         return redirect(url_for("mood.form"))
 
     mood_profile = create_mood_profile(answers)
